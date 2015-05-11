@@ -33,7 +33,7 @@ $ \pi_2$:$ V_c \rightarrow ... \rightarrow V_j$
 where length($\pi_1$)=length($\pi_2$) $\leq u$ and $V_c$ is some vertex in $\mathcal{G}$ 
 \\
 \\
-Note that the pair of directed sequences in step $2$ forms a \textit{fork}. Also $\mathcal{G}= \mathcal{G}^1$. No bidirected edges are allowed in $\mathcal{G}^1$.
+Note that the pair of directed sequences in step $2$ forms a \textit{fork}. Also $\mathcal{G}= \mathcal{G}^1$. No bidirected edges are allowed in $\mathcal{G}^1$. Also note that if $u \rightarrow v$ and $v \rightarrow u$, this is not the same as $u \leftrightarrow v$. Sergey considers these separate. The former is two single directed edges whereas the latter is one bidirected edge. 
 \\
 \\
 Converting from $\mathcal{G}^1$ to $\mathcal{G}^u$ is called the \textit{forward problem}. Finding matching $\mathcal{G}^1$'s given a $\mathcal{G}^u$ is called the \textit{backward problem}. 
@@ -42,30 +42,20 @@ Converting from $\mathcal{G}^1$ to $\mathcal{G}^u$ is called the \textit{forward
 Although we can extend $u$ indefinitely for $\mathcal{G}$, there exists a $u_{MAX}$ such that for any $u \geq u_{MAX}$, $\mathcal{G}^u = \mathcal{G}^{u_{MAX}}$. This often happens when we find a $u$ that makes $\mathcal{G}^u$ a superclique, a graph where every pair of distinct vertices is connected by a directed edge. Increasing $u$ further cannot add any additional edges since all possible edges are already in $\mathcal{G}^u$ that is a superclique. 
 \\
 \\
-Let's make $f$ be a function that takes as input a graph $\mathcal{G}$ and outputs a set $\{\mathcal{G}^2,\mathcal{G}^3,...,\mathcal{G}^{u_{MAX}}\}$. Let us consider the codomain of $f$. Assuming that $\mathcal{G}$ has $n$ many edges, we will have ${n \choose 2}$ many possible bidirected edges and $n^2$ many possible directed edges. Thus, the cardinality of the codomain is $2^{n^2+{n \choose 2}}$. However, we are only interested in the range. We call a graph in $range(f)$ \textit{reachable}. The \textit{nearest reachable} graph is a reachable graph that requries the least number of edge additions to form starting from an empty graph. 
+Let's make $f$ be a function that takes as input a graph $\mathcal{G}$ and outputs a set $\{\mathcal{G}^2,\mathcal{G}^3,...,\mathcal{G}^{u_{MAX}}\}$. Let us consider the codomain of $f$. Assuming that $\mathcal{G}$ has $n$ many edges, we will have ${n \choose 2}$ many possible bidirected edges and $n^2$ many possible directed edges. Thus, the cardinality of the codomain is $2^{n^2+{n \choose 2}}$. However, we are only interested in the range. We call a graph in $range(f)$ \textit{reachable}. Suppose we have an unreachable graph $\mathcal{H} \in codomain(f)$. The \textit{nearest reachable} graph from $\mathcal{H}$ is a reachable graph $\mathcal{H'} \in range(f)$ that requries the least number of edge additions/reversals/deletions from $\mathcal{H}$.
 
 \newpage
 
 \section{Questions}
 
-The two questions we wish to investigate are:
+Suppose the ground truth $\mathcal{G}$ is unknown to us. The questions we wish to investigate are:
 \\
 \\
-1.What properties distinguish reachable and unreachable graphs? 
+1. What properties distinguish reachable and unreachable graphs? 
 \\
-2. How do we obtain the nearest reachable graph?
+2. Given some unreachable graph $\mathcal{H}$ how do we obtain the nearest reachable graph?
 
-\section{What do we know?}
-Note that a cycle is a path that ends where it started.
-\\
-\\
-From \textit{Learning Causal Structure from Undersampled Time Series}, we know that 
-\\
-\\
-1. If $\mathcal{G}$ is a directed graph with no cycles (DAG) and no self loops and $l$ is the length of the longest directed path in $\mathcal{G}$, then for all $u \gneq l$, all edges of $\mathcal{G}^u$ are bidirected. 
-\\
-\\
-2. A strongly connected component (SCC) is a maximal set of nodes $S$ such that for every $x,y \in S$, there exists a directed PATH from $x$ to $y$. A simple loop is a directed cycle in which no node is repeated. Given a SCC $S$, $L_S$ is the set of lengths of all the simple loops in $S$. The greatest common divisor of the simple loop lengths is $gcd(L_S)$. $S$ is a SCC in $\mathcal{G}^u$ iff $gcd(L_S)=1$ for SCC $S$ in $\mathcal{G}$.
+
 
 
 	
