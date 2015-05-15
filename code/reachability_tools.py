@@ -222,6 +222,17 @@ def graph2str(G):
             A[n*(int(v,10)-1)+int(w,10)-1] = d[tuple(G[v][w])]
     return ''.join(A)
 
+#warning: 
+
+#graph2str PRESERVES bidirected edges when converting to string
+#but there is no function to convert back to dictionary
+#safe to use with undersampled graphs but NOT ground truths
+
+#g2num does NOT preserve bidirected edges when converting to string
+#but there IS a function to convert back to dictionary (num2CG)
+#safe to use with ground truths since ground truths do not
+#have bidirected edges
+
 #still need to fix this function
 #input: reachable graphs and unreachable graphs (typically from zickle files)
 #output:a plot where x axis is degree size, y axis is frequency
@@ -258,9 +269,7 @@ n = 2
 print len(determine_domain(n)) #count:16
 print len(determine_codomain(n)) #count:32
 print len(determine_all_reachable_graphs(n)) #count: 21 
+print "reachable",determine_all_reachable_graphs(n)
 print len(determine_all_unreachable_graphs(n)) #count: 11
 
 
-
-#the equivalence class of H consists of all ground truths G such that G^u = H where u is ANY undersampling rate
-#question: Given an H and a G that belongs in the equivalence class of H, can we determine all elements of the equivalence class?
