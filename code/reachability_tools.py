@@ -1,6 +1,7 @@
 import sys
 import os
-scriptpath = "/na/homes/cfreeman/Documents/virtual_test_environment/gunfolds/tools"
+scriptpath = "/Users/cynthia/Desktop/Causality/virtual_environment_test/gunfolds/tools"
+#scriptpath = "/na/homes/cfreeman/Documents/virtual_test_environment/gunfolds/tools"
 sys.path.append(os.path.abspath(scriptpath))
 import traversal, bfutils, graphkit,unknownrate,comparison
 from itertools import permutations,product,combinations,chain
@@ -207,8 +208,85 @@ def choose(n, k):
         return ntok // ktok
     else:
         return 0
-	
-###########functions that still need work#############################
+
+#input: a graph, start node, end node
+#output: return a list of all paths from start node to end node in the graph
+def find_all_paths(graph, start, end,path = []):
+	path = path + [start]
+	if start == end:
+	    return [path]
+	if not graph.has_key(start):
+	    return []
+	paths = []
+	for node in graph[start]:
+	    if node not in path:
+	        newpaths = find_all_paths(graph, node, end,path)
+	        for newpath in newpaths:
+	        	paths.append(newpath)
+	#print paths
+	return paths
+
+#input: a graph, start node, end node (start and end node are strings)
+#output: return a list of all the shortest paths from start node to end node in the graph
+def find_shortest_paths(graph, start, end, path=[]):
+	all_paths = find_all_paths(graph,start,end,path = [])
+	if all_paths:
+		length_of_shortest_path = len(min(all_paths))
+		shortest_paths = []
+		for path in all_paths:
+			if len(path) == length_of_shortest_path:
+				shortest_paths.append(path)
+		return shortest_paths
+	else:
+		return []
+
+#X is a pivotal node wrt distinct nodes Y and Z
+#if X lies on every SHORTEST path between Y and Z and
+#X is not equal to Y or Z
+#input: graph,x (the node we check for pivotality),y,z (x,y,z are strings)
+#output: T if x is a pivotal node wrt y and x
+#		 F if x is not a pivotal node wrt y and x
+# 		 -1 if x=y or y=z or x=z
+def determine_pivotal_x(graph,x,y,z):
+	if x==y or y==z or x==z:
+		return -1
+	shortest_paths = find_shortest_paths(graph,y,z)
+	if shortest_paths:
+		for path in shortest_paths:
+			if x not in path:
+				return False
+		return True
+	return False
+
+#X is a pivotal node if X is
+#pivotal for every pair of distinct vertices Y and Z
+#input: a graph and a node x to test for pivotality (str)
+#output: T if x is pivotal in general
+#		 F if x is not pivotal in general
+def determine_all_pivotal_x(graph,x):
+	#determine all pairs of distinct vertices
+	number_of_nodes = len(graph)
+	nodes = set([str(i) for i in range(1,number_of_nodes+1)])
+	nodes = nodes - set([x])
+	pairs = []
+	for perm in permutations(nodes,2):
+		#print perm
+		pairs.append(perm)
+	for pair in pairs:
+		if determine_pivotal_x(graph,x,pair[0],pair[1]) == False:
+			return False
+	return True
+
+#input: a graph in dictionary format
+#output: a dictionary where key = node and value = T if node is pivotal
+#and F if node is not pivotal
+def determine_all_pivotal(graph):
+	number_of_nodes = len(graph)
+	nodes = set([i for i in range(1,number_of_nodes+1)])
+	nodes_piv = {key:None for key in range(1,number_of_nodes+1)}
+	for node in nodes:
+		nodes_piv[node] = determine_all_pivotal_x(graph,str(node))
+	return nodes_piv
 
 #TO REPLACE SOON ONCE SERGEY PUSHES TO GITHUB
 #input: a graph G
@@ -233,43 +311,43 @@ def graph2str(G):
 #safe to use with ground truths since ground truths do not
 #have bidirected edges
 
-#still need to fix this function
-#input: reachable graphs and unreachable graphs (typically from zickle files)
-#output:a plot where x axis is degree size, y axis is frequency
-def generate_in_degree_plot(reachable_graphs,unreachable_graphs):
-	counter = defaultdict(int)
-	for array in reachable_graphs:		
-		for rg in array:
-			odrg = determine_in_degrees(rg)
-			for k,v in odrg.iteritems():
-				counter[v]+=1
-	print counter
-	#counter contains
-
-
-	#todo: make alldegrees
-	#alldegrees[0] = frequencies of degree 0
-	#alldegrees[1] = frequencies of degree 1
-	#...
-	#alldegrees[n] = frequencies of degree n
-
-	#alldegrees[0][0] = frequencies of degree 0 for unreachable graphs
-	#alldegrees[0][1] = frequencies of degree 0 for reachable graphs
-
-
-	
-#todo later: more graph properties to examine
-
 ##################testing area#######################################
 
+#what fails: 
+#in degree,
+#out degree, 
+#hamming distance between members 
+#hamming distance between members and H, 
+#to try: 
+#pivotal nodes 
+#centrality
 
 
+#n = number of nodes
+n = 3
 
-n = 2
-print len(determine_domain(n)) #count:16
-print len(determine_codomain(n)) #count:32
-print len(determine_all_reachable_graphs(n)) #count: 21 
-print "reachable",determine_all_reachable_graphs(n)
-print len(determine_all_unreachable_graphs(n)) #count: 11
+all_reachable_graphs = determine_all_reachable_graphs(n)
+i = 1
+number_of_dict_with_T_r = 0
+for graph in all_reachable_graphs:
+	print "r: ",i
+	pdict = determine_all_pivotal(graph)
+	print pdict
+	if sum(pdict.values())>0:
+		number_of_dict_with_T_r = number_of_dict_with_T_r + 1
+	i = i + 1
+print "------------------"
+all_unreachable_graphs = determine_all_unreachable_graphs(n)
+j = 1
+number_of_dict_with_T_ur = 0
+for graph in all_unreachable_graphs:
+	print "ur: ",j
+	pdict = determine_all_pivotal(graph)
+	print pdict
+	if sum(pdict.values())>0:
+		number_of_dict_with_T_ur = number_of_dict_with_T_ur + 1
+	j = j + 1
 
+print "number of reachable graphs with pivotal nodes: ",number_of_dict_with_T_r
+print "number of unreachable graphs with pivotal nodes: ",number_of_dict_with_T_ur
 
