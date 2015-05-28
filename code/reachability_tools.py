@@ -1,7 +1,7 @@
 import sys
 import os
-scriptpath = "/Users/cynthia/Desktop/Causality/virtual_environment_test/gunfolds/tools"
-#scriptpath = "/na/homes/cfreeman/Documents/virtual_test_environment/gunfolds/tools"
+#scriptpath = "/Users/cynthia/Desktop/Causality/virtual_environment_test/gunfolds/tools"
+scriptpath = "/na/homes/cfreeman/Documents/virtual_test_environment/gunfolds/tools"
 sys.path.append(os.path.abspath(scriptpath))
 import traversal, bfutils, graphkit,unknownrate,comparison
 from itertools import permutations,product,combinations,chain
@@ -76,51 +76,49 @@ def determine_codomain(n):
 		g = generate_Empty_Graph(n)
 	return glist
 
-#input: a graph GT
-#output: all undersamples of graph GT up to UMAX in a list
-#note: we have edited the form:
-#if a->b has (2,0) and b->a has (2,0) (highly redundant and super dumb)
-#change it so that a->b has (2,0) but b->a doesnt have (2,0)
-def determine_reachable_graphs_edited(GT):
-	unedited = bfutils.call_undersamples(GT)
+
+
+
+#######################################################################################################
+
+
+#input: a list of graphs in dictionary format
+#output: redundancies are removed in two ways
+#1. if a graph G has a bidirected edge from a to b and a bidirected edge from b to a, remove one of these
+#TODO
+#2. G1 and G2 are identical looking BUT graph G1 has a bidirected edge from a to b and graph G2 has a bidirected edge from b to a remove G2
+def remove_repeats(unedited):
 	for G in unedited:
 		for outerkey in G.keys():
 		#print "from:",outerkey
 			for innerkey in G[outerkey].keys():
 				#print "to:",innerkey
 				#print "sets:", G[outerkey][innerkey]
-				if (2,0) in G[outerkey][innerkey] and (2,0) in G[innerkey][outerkey]: 
-					if len(G[innerkey][outerkey]) > 1: #(2,0) isn't the only one in the set
-						G[innerkey][outerkey].remove((2,0))
-					else: #(2,0) is the only one in the set
-						del G[innerkey][outerkey]
+				if innerkey in G[outerkey] and outerkey in G[innerkey]:
+					if (2,0) in G[outerkey][innerkey] and (2,0) in G[innerkey][outerkey]: 
+						if len(G[innerkey][outerkey]) > 1: #(2,0) isn't the only one in the set
+							G[innerkey][outerkey].remove((2,0))
+						else: #(2,0) is the only one in the set
+							del G[innerkey][outerkey]
 	return unedited
 
-#input: number of vertices
-#output: list of all reachable graphs from all possible gts with n nodes
-def determine_all_reachable_graphs(n):
-	all_reachable_graphs = []
+
+def determine_reachable_unreachable_graphs(n):
+	unedited_reachableList = []
 	gts = determine_domain(n)
 	for graph in gts:
-		reachable_graphs = determine_reachable_graphs_edited(graph)
+		reachable_graphs = bfutils.call_undersamples(graph)[1:]
 		for rg in reachable_graphs:
-			if rg not in all_reachable_graphs:
-				all_reachable_graphs.append(rg)
-	return all_reachable_graphs
+			if rg not in unedited_reachableList:
+				unedited_reachableList.append(rg)
+	#reachableList = remove_repeats(unedited_reachableList)
+	codomainList = determine_codomain(n)		
+	unedited_unreachableList = [item for item in codomainList if item not in unedited_reachableList]
+	#unreachableList = remove_repeats(unedited_unreachableList)
+	#return reachableList,unreachableList
+	return unedited_reachableList,unedited_unreachableList
 
-#input: number of vertices
-#output: list of all unreachable graphs from all possible gts with n nodes
-def determine_all_unreachable_graphs(n):
-	codomainList = determine_codomain(n)
-	reachableList = determine_all_reachable_graphs(n)
-	
-	unreachableList = [item for item in codomainList if item not in reachableList]
-
-	#unreachableList = []
-	#for graph in codomainList:
-	#	if i not in reachableList and i not in unreachableList:
-	#		unreachableList.append(i)
-	return unreachableList
+######################################################################################################
 
 #input: number of vertices
 #output: cardinality of domain
@@ -180,7 +178,7 @@ def determine_out_degrees(G):
 #output: the nearest reachable graphs
 def determine_nearest_reachable_graph(H,G):
 	distances = []
-	all_reachable_graphs = determine_all_reachable_graphs(len(G))
+	all_reachable_graphs,ur = determine_reachable_unreachable_graphs(len(G))
 	for graph in all_reachable_graphs:
 		distances.append(determine_edit_distance(graph,H))
 	distancesnp = np.array(distances)
@@ -300,6 +298,7 @@ def graph2str(G):
             A[n*(int(v,10)-1)+int(w,10)-1] = d[tuple(G[v][w])]
     return ''.join(A)
 
+
 #warning: 
 
 #graph2str PRESERVES bidirected edges when converting to string
@@ -318,36 +317,55 @@ def graph2str(G):
 #out degree, 
 #hamming distance between members 
 #hamming distance between members and H, 
-#to try: 
 #pivotal nodes 
 #centrality
 
+#todo: fix code because len(ur) + len(r) does not always equal to codomain cardinality
+#consider an oscillating eqc and see if it forms a group
+#what is a nonoscillating eqc?
 
-#n = number of nodes
-n = 3
 
-all_reachable_graphs = determine_all_reachable_graphs(n)
-i = 1
-number_of_dict_with_T_r = 0
-for graph in all_reachable_graphs:
-	print "r: ",i
-	pdict = determine_all_pivotal(graph)
-	print pdict
-	if sum(pdict.values())>0:
-		number_of_dict_with_T_r = number_of_dict_with_T_r + 1
-	i = i + 1
-print "------------------"
-all_unreachable_graphs = determine_all_unreachable_graphs(n)
-j = 1
-number_of_dict_with_T_ur = 0
-for graph in all_unreachable_graphs:
-	print "ur: ",j
-	pdict = determine_all_pivotal(graph)
-	print pdict
-	if sum(pdict.values())>0:
-		number_of_dict_with_T_ur = number_of_dict_with_T_ur + 1
-	j = j + 1
 
-print "number of reachable graphs with pivotal nodes: ",number_of_dict_with_T_r
-print "number of unreachable graphs with pivotal nodes: ",number_of_dict_with_T_ur
+
+#your old oscillating function was incorrect
+#REDO
+
+def more_call_undersample(G):
+	orig = bfutils.call_undersamples(G)
+	current_length = len(orig)
+	desired_length = current_length*2
+	while current_length != desired_length:
+		orig.append(bfutils.increment_u(G,orig[-1]))
+		current_length = current_length + 1
+	return orig
+
+
+def even_more_call_undersample(G):
+	orig = bfutils.call_undersamples(G)
+	current_length = len(orig)
+	desired_length = current_length*2
+	while current_length != desired_length:
+		next = bfutils.increment_u(G,orig[-1])
+		if next != orig[-1]:
+			orig.append(bfutils.increment_u(G,orig[-1]))
+		current_length = current_length + 1
+	return orig
+
+
+
+
+domain = determine_domain(3)
+for graph in domain:
+	all_graphs = even_more_call_undersample(graph)
+	if len(all_graphs) > 2:
+		for little_graph in all_graphs:
+			print "!!!!!!!!",little_graph
+		print "\n"
+
+
+
+
+
+
+
 
