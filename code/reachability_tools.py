@@ -76,49 +76,15 @@ def determine_codomain(n):
 		g = generate_Empty_Graph(n)
 	return glist
 
-
-
-
-#######################################################################################################
-
-
-#input: a list of graphs in dictionary format
-#output: redundancies are removed in two ways
-#1. if a graph G has a bidirected edge from a to b and a bidirected edge from b to a, remove one of these
-#TODO
-#2. G1 and G2 are identical looking BUT graph G1 has a bidirected edge from a to b and graph G2 has a bidirected edge from b to a remove G2
-def remove_repeats(unedited):
-	for G in unedited:
-		for outerkey in G.keys():
-		#print "from:",outerkey
-			for innerkey in G[outerkey].keys():
-				#print "to:",innerkey
-				#print "sets:", G[outerkey][innerkey]
-				if innerkey in G[outerkey] and outerkey in G[innerkey]:
-					if (2,0) in G[outerkey][innerkey] and (2,0) in G[innerkey][outerkey]: 
-						if len(G[innerkey][outerkey]) > 1: #(2,0) isn't the only one in the set
-							G[innerkey][outerkey].remove((2,0))
-						else: #(2,0) is the only one in the set
-							del G[innerkey][outerkey]
-	return unedited
-
-
-def determine_reachable_unreachable_graphs(n):
-	unedited_reachableList = []
+def determine_reachable_graphs(n):
+	reachableList = []
 	gts = determine_domain(n)
 	for graph in gts:
-		reachable_graphs = bfutils.call_undersamples(graph)[1:]
+		reachable_graphs = bfutils.call_undersamples(graph)[1:] #because 0 returns itself
 		for rg in reachable_graphs:
 			if rg not in unedited_reachableList:
-				unedited_reachableList.append(rg)
-	#reachableList = remove_repeats(unedited_reachableList)
-	codomainList = determine_codomain(n)		
-	unedited_unreachableList = [item for item in codomainList if item not in unedited_reachableList]
-	#unreachableList = remove_repeats(unedited_unreachableList)
-	#return reachableList,unreachableList
-	return unedited_reachableList,unedited_unreachableList
-
-######################################################################################################
+				reachableList.append(rg)
+	return reachableList
 
 #input: number of vertices
 #output: cardinality of domain
@@ -174,11 +140,11 @@ def determine_out_degrees(G):
 				out_degree_dict[innerkey] = out_degree_dict[innerkey] + 1
 	return out_degree_dict
 
-#input: an UNREACHABLE graph H and the ground truth G
-#output: the nearest reachable graphs
-def determine_nearest_reachable_graph(H,G):
+#input: a graph H (in codomain land)
+#output: the nearest reachable graphs to H
+def determine_nearest_reachable_graph(H):
 	distances = []
-	all_reachable_graphs,ur = determine_reachable_unreachable_graphs(len(G))
+	all_reachable_graphs = determine_reachable_graphs(len(H))
 	for graph in all_reachable_graphs:
 		distances.append(determine_edit_distance(graph,H))
 	distancesnp = np.array(distances)
@@ -221,7 +187,6 @@ def find_all_paths(graph, start, end,path = []):
 	        newpaths = find_all_paths(graph, node, end,path)
 	        for newpath in newpaths:
 	        	paths.append(newpath)
-	#print paths
 	return paths
 
 #input: a graph, start node, end node (start and end node are strings)
@@ -303,16 +268,15 @@ def graph2str(G):
 
 #graph2str PRESERVES bidirected edges when converting to string
 #but there is no function to convert back to dictionary
-#safe to use with undersampled graphs but NOT ground truths
+#safe to use with undersampled graphs (codomain graphs) 
 
 #g2num does NOT preserve bidirected edges when converting to string
 #but there IS a function to convert back to dictionary (num2CG)
-#safe to use with ground truths since ground truths do not
-#have bidirected edges
+#safe to use with ground truths (domain)
 
 ##################testing area#######################################
 
-#what fails: 
+#what fails: (in comparing reachable and unreachable graphs)
 #in degree,
 #out degree, 
 #hamming distance between members 
@@ -320,47 +284,10 @@ def graph2str(G):
 #pivotal nodes 
 #centrality
 
-#todo: fix code because len(ur) + len(r) does not always equal to codomain cardinality
-#consider an oscillating eqc and see if it forms a group
-#what is a nonoscillating eqc?
 
 
 
 
-#your old oscillating function was incorrect
-#REDO
-
-def more_call_undersample(G):
-	orig = bfutils.call_undersamples(G)
-	current_length = len(orig)
-	desired_length = current_length*2
-	while current_length != desired_length:
-		orig.append(bfutils.increment_u(G,orig[-1]))
-		current_length = current_length + 1
-	return orig
-
-
-def even_more_call_undersample(G):
-	orig = bfutils.call_undersamples(G)
-	current_length = len(orig)
-	desired_length = current_length*2
-	while current_length != desired_length:
-		next = bfutils.increment_u(G,orig[-1])
-		if next != orig[-1]:
-			orig.append(bfutils.increment_u(G,orig[-1]))
-		current_length = current_length + 1
-	return orig
-
-
-
-
-domain = determine_domain(3)
-for graph in domain:
-	all_graphs = even_more_call_undersample(graph)
-	if len(all_graphs) > 2:
-		for little_graph in all_graphs:
-			print "!!!!!!!!",little_graph
-		print "\n"
 
 
 
