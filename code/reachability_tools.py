@@ -1,7 +1,7 @@
 import sys
 import os
-#scriptpath = "/Users/cynthia/Desktop/Causality/virtual_environment_test/gunfolds/tools"
-scriptpath = "/na/homes/cfreeman/Documents/virtual_test_environment/gunfolds/tools"
+scriptpath = "/Users/cynthia/Desktop/Causality/virtual_environment_test/gunfolds/tools"
+#scriptpath = "/na/homes/cfreeman/Documents/virtual_test_environment/gunfolds/tools"
 sys.path.append(os.path.abspath(scriptpath))
 import traversal, bfutils, graphkit,unknownrate,comparison
 from itertools import permutations,product,combinations,chain
@@ -11,6 +11,8 @@ from numpy.random import randint
 import zickle as zkl
 import matplotlib.pyplot as plt
 from collections import defaultdict
+import networkx as nx 
+import networkx.algorithms.isomorphism as iso
 
 #input: number of vertices
 #output: list of all possible ground truths with n nodes 
@@ -37,8 +39,39 @@ def determine_domain(n):
 	return glist
 
 #input: number of vertices
+#output: list of all possible ground truths with n nodes that are SCCS
+#(only single directed edges allowed)
+def determine_SCC_domain(n):
+	vertices = [x+1 for x in range(n)]	
+	#determine all single directed edges
+	single_directed_edge_list = list(product(vertices,vertices))
+	#remove ring edges
+	for x in range(n):
+		if x+2 == n+1:
+			single_directed_edge_list.remove((x+1,1))
+		else:
+			single_directed_edge_list.remove((x+1,x+2))
+	#determine all possible graphs that can be formed 
+	allgraphs = chain.from_iterable(combinations(single_directed_edge_list, r) for r in range(len(single_directed_edge_list)+1))
+	#now to convert to dictionary form that sergey uses
+	g = generate_ring_graph(n)
+	glist = []
+	for i in allgraphs:
+		if i != ():
+			for e in i:
+				e = (str(e[0]),str(e[1]))
+				if g[e[0]].get(e[1]) == None:
+					g[e[0]][e[1]] = set([(0,1)])
+				else: #entry already exists
+					g[e[0]][e[1]].add((0,1))
+		glist.append(g)
+		g = generate_ring_graph(n)
+	return glist
+
+#input: number of vertices
 #output: the codomain-list of all possible graphs with n many vertices
 #(both directed and bidirected edges allowed)
+#this function blows
 def determine_codomain(n):
 	vertices = [x+1 for x in range(n)]
 	#determine all single directed edges
@@ -76,15 +109,35 @@ def determine_codomain(n):
 		g = generate_Empty_Graph(n)
 	return glist
 
+#input: number of nodes in graph
+#output: a list of all reachable graphs with n nodes
 def determine_reachable_graphs(n):
 	reachableList = []
 	gts = determine_domain(n)
 	for graph in gts:
-		reachable_graphs = bfutils.call_undersamples(graph)[1:] #because 0 returns itself
+		reachable_graphs = bfutils.call_undersamples(graph)[1:] #because 0 returns itself and that's dumb
 		for rg in reachable_graphs:
-			if rg not in unedited_reachableList:
+			if rg not in reachableList:
 				reachableList.append(rg)
 	return reachableList
+
+#input: number of nodes in graph
+#output: a list of all reachable graphs with n nodes
+def determine_SCC_reachable_graphs(n):
+	reachableList = []
+	gts = determine_SCC_domain(n)
+	for graph in gts:
+		reachable_graphs = bfutils.call_undersamples(graph)[1:] #because 0 returns itself
+		for rg in reachable_graphs:
+			if rg not in reachableList:
+				reachableList.append(rg)
+	return reachableList
+
+#input: number of nodes, name of zickle file to save to
+#output: none...we just make a zickle file of a list of the reachable graphs with n nodes
+def make_rg_zickle(n,name):
+	rgs = determine_reachable_graphs(n)
+	zkl.save(rgs,name)
 
 #input: number of vertices
 #output: cardinality of domain
@@ -104,6 +157,15 @@ def generate_Empty_Graph(n):
 	g = {}
 	for i in range(n):
 		g[str(i+1)] = {} #use str to match sergey's call undersamples func
+	return g
+
+#input: number of vertices
+#output: ring graph dictionary for n vertices
+def generate_ring_graph(n):
+	g = {}
+	for i in range(1,n):
+		g[str(i)] = {str(i+1): set([(0,1)])}
+		g[str(n)] = {'1': set([(0,1)])} 
 	return g
 
 #input: a graph G
@@ -154,6 +216,7 @@ def determine_nearest_reachable_graph(H):
 #input: two graphs G1 and G2
 #ouput: the hamming distance (the number of differing characters) between the two graphs
 def determine_edit_distance(G1,G2):
+	#TO EDIT!!!!!!!!!!!!!!!!!!!
 	G1str = str(graph2str(G1))
 	G2str = str(graph2str(G2))
 	#G1str and G2str MUST have same length
@@ -173,6 +236,7 @@ def choose(n, k):
     else:
         return 0
 
+#warning: not able to find cycles (start and end can't be equal)
 #input: a graph, start node, end node
 #output: return a list of all paths from start node to end node in the graph
 def find_all_paths(graph, start, end,path = []):
@@ -251,7 +315,116 @@ def determine_all_pivotal(graph):
 		nodes_piv[node] = determine_all_pivotal_x(graph,str(node))
 	return nodes_piv
 
-#TO REPLACE SOON ONCE SERGEY PUSHES TO GITHUB
+#input: G^1 (domain graph)
+#output: string version of G^1
+#warning: this function does not take bidirected edges into account
+def g2num(g):
+    n = len(g)
+    n2 = n**2 + n
+    num = 0
+    for v in range(1,n+1):
+        for w in g[str(v)]:
+            num |= (1<<(n2 - v*n - int(w,10)))
+    return num
+
+#input: G^u (codomain graph)
+#output: string version of G^u 
+def ug2num(g):
+    n = len(g)
+    n2 = n**2 + n
+    num = 0
+    num2 = 0
+    mask = 0
+    for v in g:
+        for w in g[v]:
+            if (0,1) in g[v][w]:
+                mask = (1<<(n2 - int(v,10)*n - int(w,10)))
+                num |= mask
+            if (2,0) in g[v][w]: 
+            	num2 |= mask
+    return num, num2
+
+#simple loop: directed cycle in which no node is repeated
+#input: a graph, node
+#output: return a list of all 
+#		 directed cycles with no node repeats
+#		 in the graph starting (and obviously ending) from c_node
+def find_all_cycles(graph,c_node):
+	if not graph.has_key(c_node):
+	    return []
+	all_paths = []
+	for node in graph[c_node]:
+		partial_path_1 = [c_node]
+		partial_paths_2 = find_all_paths(graph,node,c_node)
+		for partial_path_2 in partial_paths_2:
+			full_path = partial_path_1 + partial_path_2
+			all_paths.append(full_path)
+	return all_paths
+
+#simple loop: directed cycle in which no node is repeated
+#input: a graph
+#output: return a dictionary where key = node, value = array of simple loop lengths
+def find_simple_loop_lengths(graph):
+	cycle_lengths = {} #key = node, value = array of simple loop lengths
+	for node in graph:
+		lengths = []
+		cycles = find_all_cycles(graph,node)
+		for cycle in cycles:
+			lengths.append(len(cycle))
+		cycle_lengths[node] = lengths
+	return cycle_lengths
+
+#input: a graph G
+#output: a list containing all isomorphisms of G
+def find_all_isomorphisms(G):
+	num_vertices = len(G)
+	string = ''
+	for k in range(1,num_vertices+1):
+		string = string + str(k)
+	all_permutations = permutations(string)
+	all_isos = []
+	for permutation in all_permutations:
+		#make isomorphism function mapping nodes to new ordering of nodes
+		iso_func = {}
+		i = 0
+		for u in G:
+			iso_func[u] = permutation[i]
+			i = i + 1
+		#make new isomorphic graphs
+		new_isomorphic_G = generate_Empty_Graph(len(G))
+		for start in G:
+			inner_dict = {}
+			for end in G[start]:
+				inner_dict[iso_func[end]] = G[start][end]  
+				new_isomorphic_G[iso_func[start]] = inner_dict 
+				#print "check: ",new_isomorphic_G
+		all_isos.append(new_isomorphic_G)
+	return all_isos
+
+#input: number of nodes
+#output: a list of nonisomorphic reachable graphs
+#def return_only_unique(n):
+def return_only_unique(name):
+	#rg = determine_reachable_graphs(n)
+	rg = zkl.load(name)
+	for item1 in rg:
+		#delete all isomorphisms from rg
+		all_isos = find_all_isomorphisms(item1)
+		for item2 in all_isos:
+			if item2 in rg and item1 != item2:
+				rg.remove(item2)	
+	return rg
+
+
+
+
+
+
+
+
+
+
+#TO BE DELETED
 #input: a graph G
 #output: string version of G
 def graph2str(G):
@@ -263,26 +436,27 @@ def graph2str(G):
             A[n*(int(v,10)-1)+int(w,10)-1] = d[tuple(G[v][w])]
     return ''.join(A)
 
-
-#warning: 
-
-#graph2str PRESERVES bidirected edges when converting to string
-#but there is no function to convert back to dictionary
-#safe to use with undersampled graphs (codomain graphs) 
-
-#g2num does NOT preserve bidirected edges when converting to string
-#but there IS a function to convert back to dictionary (num2CG)
-#safe to use with ground truths (domain)
-
 ##################testing area#######################################
 
-#what fails: (in comparing reachable and unreachable graphs)
+#what fails: 
 #in degree,
 #out degree, 
 #hamming distance between members 
 #hamming distance between members and H, 
 #pivotal nodes 
 #centrality
+#simple loop lengths
+
+
+#TODO:
+#dbn plot
+#fix hamming distance stuff
+#is there a way to get unreachable graphs quickly?
+
+
+
+
+
 
 
 
