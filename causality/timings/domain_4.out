@@ -1,0 +1,55 @@
+time: 2015-07-22 13:13:33.032242
+args: {'profile': True, 'domain': True, 'nprocs': -1, 'n': 4, 'codomain': False, 'sge': False}
+         65556 function calls in 1.907 seconds
+
+   Ordered by: internal time, call count
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    1.132    1.132    1.907    1.907 reachability.py:39(create_domain)
+    65537    0.775    0.000    0.775    0.000 reachability.py:30(generate_empty_graph)
+       18    0.000    0.000    0.000    0.000 reachability.py:48(<genexpr>)
+        0    0.000             0.000          profile:0(profiler)
+
+
+Graph count: 65536
+Graph size: 578944 Bytes
+Avg. Graph size: 8.833984375 Bytes
+time: 2015-07-22 13:17:23.624324
+args: {'profile': True, 'domain': True, 'nprocs': -1, 'n': 4, 'codomain': False, 'sge': False}
+         131094 function calls in 0.571 seconds
+
+   Ordered by: internal time, call count
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.493    0.493    0.571    0.571 reachability.py:40(create_domain)
+    65537    0.040    0.000    0.040    0.000 copy.py:113(_copy_with_constructor)
+    65537    0.038    0.000    0.078    0.000 copy.py:66(copy)
+       18    0.000    0.000    0.000    0.000 reachability.py:49(<genexpr>)
+        1    0.000    0.000    0.000    0.000 reachability.py:31(generate_empty_graph)
+        0    0.000             0.000          profile:0(profiler)
+
+
+Graph count: 65536
+Graph size: 578944 Bytes
+Avg. Graph size: 8.833984375 Bytes
+time: 2015-07-22 13:20:19.123536
+args: {'profile': True, 'domain': True, 'nprocs': -1, 'n': 4, 'codomain': False, 'sge': False}
+         131094 function calls in 0.537 seconds
+
+   Ordered by: internal time, call count
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.460    0.460    0.537    0.537 reachability.py:40(create_domain)
+    65537    0.039    0.000    0.039    0.000 copy.py:113(_copy_with_constructor)
+    65537    0.038    0.000    0.077    0.000 copy.py:66(copy)
+       18    0.000    0.000    0.000    0.000 reachability.py:49(<genexpr>)
+        1    0.000    0.000    0.000    0.000 reachability.py:31(generate_empty_graph)
+        0    0.000             0.000          profile:0(profiler)
+
+
+Graph count: 65536
+Graph size: 578944 Bytes
+Avg. Graph size: 8.833984375 Bytes
+
+
+

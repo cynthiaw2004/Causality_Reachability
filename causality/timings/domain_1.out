@@ -1,0 +1,34 @@
+time: 2015-07-22 13:16:36.432134
+args: {'profile': True, 'domain': True, 'nprocs': -1, 'n': 1, 'codomain': False, 'sge': False}
+         7 function calls in 0.000 seconds
+
+   Ordered by: internal time, call count
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.000    0.000 reachability.py:39(create_domain)
+        3    0.000    0.000    0.000    0.000 reachability.py:30(generate_empty_graph)
+        3    0.000    0.000    0.000    0.000 reachability.py:48(<genexpr>)
+        0    0.000             0.000          profile:0(profiler)
+
+
+Graph count: 2
+Graph size: 104 Bytes
+Avg. Graph size: 52.0 Bytes
+time: 2015-07-22 13:17:09.240634
+args: {'profile': True, 'domain': True, 'nprocs': -1, 'n': 1, 'codomain': False, 'sge': False}
+         11 function calls in 0.000 seconds
+
+   Ordered by: internal time, call count
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.000    0.000 reachability.py:40(create_domain)
+        3    0.000    0.000    0.000    0.000 copy.py:113(_copy_with_constructor)
+        3    0.000    0.000    0.000    0.000 copy.py:66(copy)
+        1    0.000    0.000    0.000    0.000 reachability.py:31(generate_empty_graph)
+        3    0.000    0.000    0.000    0.000 reachability.py:49(<genexpr>)
+        0    0.000             0.000          profile:0(profiler)
+
+
+Graph count: 2
+Graph size: 104 Bytes
+Avg. Graph size: 52.0 Bytes
