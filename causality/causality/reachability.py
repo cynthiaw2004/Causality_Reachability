@@ -1,16 +1,23 @@
 from __future__ import print_function, unicode_literals, division, absolute_import
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from copy import copy
+import cStringIO
 import gzip
-from itertools import permutations, product, combinations, chain
+from itertools import permutations, product, combinations, chain, izip, repeat
+import json
+from multiprocessing import Pool, cpu_count
 import sys
-from yaml import load, dump
-try:
-    from yaml import CLoader as Loader, CDumper as Dumper
-except ImportError:
-    from yaml import Loader, Dumper
+import time
 
 global _DEBUG
+
+
+def handler(obj):
+    """ Handle encoding set objects in json """
+    if type(obj) == set:
+        return list(obj)
+    else:
+        raise TypeError, 'Object of type {0} with value of {1} is not JSON serializable'.format(type(obj), repr(obj))
 
 
 class ConditonalProfile(object):
@@ -46,8 +53,27 @@ def generate_empty_graph(n):
     return g
 
 
+def generate_partial(args):
+    """ Process entry point, converts a subset of graphs to dictionary form """
+    subgraphs = args[0]
+    n = args[1]
+    g = generate_empty_graph(n)
+    # Store graphs in gzipped memory
+    gz_mem_file = cStringIO.StringIO()
+    gzip_obj = gzip.GzipFile(mode='ab', fileobj=gz_mem_file)
+    for e in subgraphs:
+        e = map(str, e)
+        try:
+            g[e[0]][e[1]].add((0, 1))
+        except KeyError:
+            g[e[0]][e[1]] = set([(0, 1)])
+    gzip_obj.write("---\n{}...\n".format(json.dumps([g], default=handler)))
+    gzip_obj.close()
+    return gz_mem_file.getvalue()
+
+
 @ConditonalProfile
-def create_domain(n):
+def create_domain(n, nprocs):
     """ input: number of vertices
         output: list of all possible ground truths with n nodes
         (only single directed edges allowed in domain graphs) """
@@ -57,29 +83,42 @@ def create_domain(n):
     # determine all possible graphs that can be formed
     allgraphs = chain.from_iterable(combinations(single_directed_edge_list, r)
                                     for r in xrange(len(vertices) ** 2 + 1))
-    # now to convert to dictionary form that sergey uses
-    g_base = generate_empty_graph(n)
-    g = copy(g_base)
-    # Store graphs in yaml format file
-    filename = "domain_graphs_{}.gz".format(n)
-    handle = open(filename, "wb")
-    gzfile = gzip.GzipFile(mode="w", fileobj=handle)
-    chunk_size = 1000 # how much to store in mem before flushing
-    glist = []
-    for i in allgraphs:
-        for e in i:
-            e = map(str, e)
-            try:
-                g[e[0]][e[1]].add((0, 1))
-            except KeyError:
-                g[e[0]][e[1]] = set([(0, 1)])
-        glist.append(g)
-        if len(glist) >= chunk_size:
-            gzfile.write("---\n{}".format(dump(glist)))
-            glist = []
+    if nprocs != -1:
+        # Run locally multiprocess
+        if nprocs == 0:
+            nprocs = cpu_count()
+        pool = Pool(processes=nprocs)
+        gz_mem_file = cStringIO.StringIO()
+        for res in pool.imap(generate_partial, izip(allgraphs, repeat(n)), chunksize=1):
+            gz_mem_file.write(res)
+        pool.close()
+
+    else:
+        # Run locally as single process
+        # now to convert to dictionary form that sergey uses
+        g_base = generate_empty_graph(n)
         g = copy(g_base)
-    gzfile.close()
-    return filename
+        # Store graphs in gzipped memory
+        gz_mem_file = cStringIO.StringIO()
+        gzip_obj = gzip.GzipFile(mode='wb', fileobj=gz_mem_file)
+        chunk_size = 10000  # how much to store in mem before flushing
+        glist = []
+        for subgraphs in allgraphs:
+            # split out procs here
+            for e in subgraphs:
+                e = map(str, e)
+                try:
+                    g[e[0]][e[1]].add((0, 1))
+                except KeyError:
+                    g[e[0]][e[1]] = set([(0, 1)])
+            glist.append(g)
+            if len(glist) >= chunk_size:
+                gzip_obj.write("---\n{}...\n".format(json.dumps(glist, default=handler)))
+                glist = []
+            g = copy(g_base)
+        gzip_obj.close()
+
+    return gz_mem_file
 
 
 @ConditonalProfile
@@ -191,15 +230,17 @@ if __name__ == "__main__":
 
     print("time: {}\nargs: {}".format(datetime.datetime.now(), args.__dict__))
 
-    _DEBUG = args.profile
+    _DEBUG = args.profile if args.nprocs == -1 else False
 
     if args.domain:
         if args.n is None:
             sys.exit("You must specify n")
-        filename = create_domain(args.n)
-        #print("Graph count: {}\nGraph size: {} Bytes\nAvg. Graph size: {} Bytes\n\n".format(
+        t0 = time.time()
+        graphs = create_domain(args.n, args.nprocs)
+        # print("Graph count: {}\nGraph size: {} Bytes\nAvg. Graph size: {} Bytes\n\n".format(
         #    len(graphs), sys.getsizeof(graphs), sys.getsizeof(graphs) / len(graphs)))
-        print("Results in {}".format(filename))
+        # print("Results in {}".format(filename))
+        print("Exec Time: {} Seconds\nGraph size: {} MB".format(time.time() - t0, sys.getsizeof(graphs.getvalue())/(1024**2)))
 
     if args.codomain:
         if args.n is None:
