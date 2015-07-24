@@ -7,19 +7,13 @@ import json
 from multiprocessing import Pool, cpu_count
 import os
 import shutil
+import socket
+import subprocess
 import sys
 from tempfile import NamedTemporaryFile
 import time
 
 global _DEBUG
-
-
-def handler(obj):
-    """ Handle encoding set objects in json """
-    if type(obj) == set:
-        return list(obj)
-    else:
-        raise TypeError, 'Object of type {0} with value of {1} is not JSON serializable'.format(type(obj), repr(obj))
 
 
 class ConditonalProfile(object):
@@ -46,15 +40,6 @@ class ConditonalProfile(object):
         return output
 
 
-def generate_empty_graph(n):
-    """ input: number of vertices
-        ouput: empty graph dictionary for n vertices """
-    g = {}
-    for i in xrange(n):
-        g[str(i + 1)] = {}  # use str to match sergey's call undersamples func
-    return g
-
-
 def grouper(n, iterable):
     """ http://stackoverflow.com/a/8991553 """
     it = iter(iterable)
@@ -66,28 +51,19 @@ def grouper(n, iterable):
 
 
 def generate_partial(args):
-    """ Process entry point, converts a subset of graphs to dictionary form """
+    """ Process entry point, write out each graph to a gz file """
     graph_iter, n, outdir = args
     # Write graphs out to gzipped file
     gz_file = NamedTemporaryFile(suffix=".gz", dir=outdir, delete=False)
     gzip_obj = gzip.GzipFile(mode='wb', fileobj=gz_file)
     for subgraphs in graph_iter:
-        gzip_obj.write("---\n{}\n...\n".format(subgraphs))
+        gzip_obj.write("---\n{}\n...\n".format(json.dumps(subgraphs)))
     gzip_obj.close()
     gz_file.close()
 
 
-@ConditonalProfile
-def create_domain(n, nprocs, outdir):
-    """ input: number of vertices
-        output: list of all possible ground truths with n nodes
-        (only single directed edges allowed in domain graphs) """
-    vertices = [x + 1 for x in xrange(n)]
-    # determine all single directed edges
-    single_directed_edge_list = list(product(vertices, vertices))
-    # determine all possible graphs that can be formed
-    graph_count = len(vertices) ** 2
-    allgraphs = chain.from_iterable(combinations(single_directed_edge_list, r) for r in xrange(graph_count + 1))
+def generate_graphs(graph_iter, graph_count, n, nprocs, outdir):
+    """ Determine how to run the graph generator """
     if nprocs != -1:
         # Run locally multiprocess
         if nprocs == 0:
@@ -95,45 +71,40 @@ def create_domain(n, nprocs, outdir):
         pool = Pool(processes=nprocs)
         num_tasks = 10000  # max number of SGE tasks and output files
         chunk_size = max(graph_count / num_tasks, 20000)  # Dont starve workers
-        for res in pool.imap(generate_partial, izip(grouper(chunk_size, allgraphs), repeat(n), repeat(outdir))):
+        for res in pool.imap(generate_partial, izip(grouper(chunk_size, graph_iter), repeat(n), repeat(outdir))):
             pass
         pool.close()
     else:
-        generate_partial((allgraphs, n, outdir))
+        generate_partial((graph_iter, n, outdir))
 
+
+@ConditonalProfile
+def create_domain(n, nprocs, outdir):
+    """ Create all possible ground truths with n nodes
+        (only single directed edges allowed in domain graphs) """
+    vertices = [x + 1 for x in xrange(n)]
+    # determine all single directed edges
+    single_directed_edge_list = list(product(vertices, vertices))
+    # determine all possible graphs that can be formed
+    graph_count = len(vertices) ** 2
+    allgraphs = chain.from_iterable(combinations(single_directed_edge_list, r) for r in xrange(graph_count + 1))
+    generate_graphs(allgraphs, graph_count, n, nprocs, outdir)
 
 
 @ConditonalProfile
 def create_codomain(n, nprocs, outdir):
-    """ input: number of vertices
-        output: the codomain-list of all possible graphs with n many vertices
-        (both directed and bidirected edges allowed)
-        this function is sloooooowww """
+    """ Create all possible graphs with n many vertices
+        (both directed and bidirected edges allowed) """
     vertices = [x + 1 for x in xrange(n)]
     # determine all single directed edges
-    single_directed_edge_list = list(product(vertices, vertices))
+    single_directed_edge_set = set(product(vertices, vertices))
     # determine all bidirected edges
-    bidirected_edge_list_0 = []
-    for k in list(combinations(vertices, 2)):
-        bidirected_edge_list_0.append((k[0], k[1], 'bidirected'))  # make these distinct from single direct edges
+    bidirected_edge_set = {(k[0], k[1], -1) for k in combinations(vertices, 2)}
     # determine all possible graphs that can be formed
-    single_directed_edge_set = set(single_directed_edge_list)
-    bidirected_edge_set = set(bidirected_edge_list_0)
     alledges = single_directed_edge_set | bidirected_edge_set
-    allgraphs = chain.from_iterable(combinations(alledges, r) for r in xrange(len(alledges) + 1))
-    # now to convert to dictionary form
-    g = generate_empty_graph(n)  # so there can exist nodes that are empty
-    glist = []
-    for i in allgraphs:
-        for e in i:
-            e = map(str,e)
-            if len(e) == 2:
-                g[e[0]][e[1]] = set([(0, 1)])
-            else:  # len(e) ==3
-                g[e[0]][e[1]] = set([(2, 0)])
-        glist.append(g)
-        g = generate_empty_graph(n)
-    return glist
+    graph_count = len(alledges)
+    allgraphs = chain.from_iterable(combinations(alledges, r) for r in xrange(graph_count + 1))
+    generate_graphs(allgraphs, graph_count, n, nprocs, outdir)
 
 
 def directed_inc(G, D):
@@ -230,3 +201,14 @@ if __name__ == "__main__":
         t0 = time.time()
         graphs = create_codomain(args.n, args.nprocs, args.out)
         print("Exec Time: {} Seconds".format(time.time() - t0))
+
+    # Combine output files
+    try:
+        subprocess.check_call("cat {}/tmp* > {}/{}__nodes__{}.gz".format(
+                              args.out, args.out, socket.gethostname().split('.')[0], args.n), shell=True)
+    except:
+        sys.exit("Error collecting results files!")
+    try:
+        subprocess.check_call("rm {}/tmp*".format(args.out), shell=True)
+    except:
+        sys.exit("Error removing temporary result files!")
