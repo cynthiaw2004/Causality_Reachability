@@ -101,7 +101,6 @@ def create_domain(n, nprocs, outdir):
     else:
         generate_partial((allgraphs, n, outdir))
 
-    return outdir
 
 
 @ConditonalProfile
@@ -110,38 +109,28 @@ def create_codomain(n, nprocs, outdir):
         output: the codomain-list of all possible graphs with n many vertices
         (both directed and bidirected edges allowed)
         this function is sloooooowww """
-    vertices = [x + 1 for x in range(n)]
+    vertices = [x + 1 for x in xrange(n)]
     # determine all single directed edges
     single_directed_edge_list = list(product(vertices, vertices))
     # determine all bidirected edges
-    bidirected_edge_list = list(combinations(vertices, 2))
     bidirected_edge_list_0 = []
-    for k in bidirected_edge_list:
-        (x, y) = k
-        bidirected_edge_list_0.append((x, y, 'bidirected'))  # make these distinct from single direct edges
+    for k in list(combinations(vertices, 2)):
+        bidirected_edge_list_0.append((k[0], k[1], 'bidirected'))  # make these distinct from single direct edges
     # determine all possible graphs that can be formed
     single_directed_edge_set = set(single_directed_edge_list)
     bidirected_edge_set = set(bidirected_edge_list_0)
     alledges = single_directed_edge_set | bidirected_edge_set
-    allgraphs = chain.from_iterable(combinations(alledges, r) for r in range(len(alledges) + 1))
+    allgraphs = chain.from_iterable(combinations(alledges, r) for r in xrange(len(alledges) + 1))
     # now to convert to dictionary form
     g = generate_empty_graph(n)  # so there can exist nodes that are empty
     glist = []
     for i in allgraphs:
-        if i != ():
-            for e in i:
-                if len(e) == 2:
-                    e = (str(e[0]), str(e[1]))
-                    if g[e[0]].get(e[1]) == None:
-                        g[e[0]][e[1]] = set([(0, 1)])
-                    else:  # entry already exists
-                        g[e[0]][e[1]].add((0, 1))
-                else:  # len(e) ==3
-                    e = (str(e[0]), str(e[1]), str(e[2]))
-                    if g[e[0]].get(e[1]) == None:
-                        g[e[0]][e[1]] = set([(2, 0)])
-                    else:
-                        g[e[0]][e[1]].add((2, 0))
+        for e in i:
+            e = map(str,e)
+            if len(e) == 2:
+                g[e[0]][e[1]] = set([(0, 1)])
+            else:  # len(e) ==3
+                g[e[0]][e[1]] = set([(2, 0)])
         glist.append(g)
         g = generate_empty_graph(n)
     return glist
