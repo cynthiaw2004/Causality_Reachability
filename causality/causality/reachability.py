@@ -7,7 +7,6 @@ import json
 from multiprocessing import Pool, cpu_count
 import numpy as np
 import os
-from scipy.sparse import csc_matrix
 import shutil
 import socket
 import subprocess
@@ -109,49 +108,68 @@ def create_codomain(n, nprocs, outdir):
     generate_graphs(allgraphs, graph_count, n, nprocs, outdir)
 
 
-def directed_inc_matrix(G_1,G_u):
-    G_u_plus_1 = csc_matrix(G_u.shape,dtype=np.int8)
+def directed_inc_matrix(G_1, G_u):
+    G_u_plus_1 = np.zeros(G_u.shape, dtype=np.int8)
     xs, ys = np.triu_indices(G_u.shape[0])
-    for a,b in izip(xs,ys):
-        if G_u[a][b] in (1,5):
-            for c in G_1[b].nonzero()[1]:
-                if G_1[b][c] == 1:
-                    #there exists a path of length u+1 from a to c in G_1
-                    if G_u_plus_1[c][a] == 1:
-                        G_u_plus_1[a][c] = 3
-                        G_u_plus_1[c][a] = 3
+    for a, b in izip(xs, ys):
+        if G_u[a,b] in (1, 5):
+            for c in G_1[b].nonzero()[0]:
+                if G_1[b,c] == 1:
+                    # there exists a path of length u+1 from a to c in G_1
+                    if G_u_plus_1[c,a] == 1:
+                        G_u_plus_1[a,c] = 3
+                        G_u_plus_1[c,a] = 3
                     else:
-                        G_u_plus_1[a][c] = 1
-                        G_u_plus_1[c][a] = 2
-        if G_u[a][b] in (2,6):
-            for c in G_1[a].nonzero()[1]:
-                if G_1[a][c] == 1:
-                    #there exists a path of length u+1 from b to c in G_1
-                    if G_u_plus_1[c][b] == 1:
-                        G_u_plus_1[b][c] = 3
-                        G_u_plus_1[c][b] = 3
+                        G_u_plus_1[a,c] = 1
+                        G_u_plus_1[c,a] = 2
+        if G_u[a,b] in (2, 6):
+            for c in G_1[a].nonzero()[0]:
+                if G_1[a,c] == 1:
+                    # there exists a path of length u+1 from b to c in G_1
+                    if G_u_plus_1[c,b] == 1:
+                        G_u_plus_1[b,c] = 3
+                        G_u_plus_1[c,b] = 3
                     else:
-                        G_u_plus_1[b][c] = 1
-                        G_u_plus_1[c][b] = 2
-        if G_u[a][b] in (3,7):
-            for c in G_1[b].nonzero()[1]:
-                if G_1[b][c] == 1:
-                    #there exists a path of length u+1 from a to c in G_1
-                    if G_u_plus_1[c][a] == 1:
-                        G_u_plus_1[a][c] = 3
-                        G_u_plus_1[c][a] = 3
+                        G_u_plus_1[b,c] = 1
+                        G_u_plus_1[c,b] = 2
+        if G_u[a,b] in (3, 7):
+            for c in G_1[b].nonzero()[0]:
+                if G_1[b,c] == 1:
+                    # there exists a path of length u+1 from a to c in G_1
+                    if G_u_plus_1[c,a] == 1:
+                        G_u_plus_1[a,c] = 3
+                        G_u_plus_1[c,a] = 3
                     else:
-                        G_u_plus_1[a][c] = 1
-                        G_u_plus_1[c][a] = 2
-            for c in G_1[a].nonzero()[1]:
-                if G_1[a][c] == 1:
-                    #there exists a path of length u+1 from b to c in G_1
-                    if G_u_plus_1[c][b] == 1:
-                        G_u_plus_1[b][c] = 3
-                        G_u_plus_1[c][b] = 3
+                        G_u_plus_1[a,c] = 1
+                        G_u_plus_1[c,a] = 2
+            for c in G_1[a].nonzero()[0]:
+                if G_1[a,c] == 1:
+                    # there exists a path of length u+1 from b to c in G_1
+                    if G_u_plus_1[c,b] == 1:
+                        G_u_plus_1[b,c] = 3
+                        G_u_plus_1[c,b] = 3
                     else:
-                        G_u_plus_1[b][c] = 1
-                        G_u_plus_1[c][b] = 2
+                        G_u_plus_1[b,c] = 1
+                        G_u_plus_1[c,b] = 2
+    return G_u_plus_1
+
+
+def bidirected_inc_matrix(G_u_plus_1, G_u):
+    # bidirected edges
+    xs, ys = np.triu_indices(G_u.shape[0])
+    add_bi_edge = {0:4, 1:5, 2:6, 3:7}
+    for a, b in izip(xs,ys):
+        # transfer old bidirected edges
+        if G_u[a,b] in (4, 5, 6):
+            G_u_plus_1[a,b] = add_bi_edge.get(G_u_plus_1[a,b], G_u_plus_1[a,b])
+            G_u_plus_1[b,a] = add_bi_edge.get(G_u_plus_1[b,a], G_u_plus_1[b,a])  # a may = b
+
+        # new bidirected edges
+        l = (c for c in G_u[a].nonzero()[0] if G_u[a,c] == 1)
+        for x, y in permutations(l, 2):
+            G_u_plus_1[x,y] = add_bi_edge.get(G_u_plus_1[x,y], G_u_plus_1[x,y])
+            G_u_plus_1[y,x] = add_bi_edge.get(G_u_plus_1[y,x], G_u_plus_1[y,x])
+
     return G_u_plus_1
 
 
@@ -181,22 +199,32 @@ def bidirected_inc(G, D):
     return G
 
 
-def increment_u(G_star, G_u):
-    # directed edges
-    G_un = directed_inc(G_star, G_u)
-    # bidirected edges
-    G_un = bidirected_inc(G_un, G_u)
+def increment_u(G_1, G_u, fmt="matrix"):
+    if fmt == "matrix":
+        G_un = directed_inc_matrix(G_1, G_u)
+        G_un = bidirected_inc_matrix(G_un, G_u)
+    else:
+        G_un = directed_inc(G_1, G_u)
+        G_un = bidirected_inc(G_un, G_u)
     return G_un
 
 
-@ConditonalProfile
-def call_undersamples(G_star):
-    glist = [G_star]
+def call_undersamples(G_1):
+    glist = [G_1]
+    fmt = "matrix"
+    if type(G_1) == dict:
+        fmt = "dict"
     while True:
-        g = increment_u(G_star, glist[-1])
-        if g in glist:
-            return glist
-        glist.append(g)
+        G = increment_u(G_1, glist[-1], fmt)
+        if fmt == "matrix":
+            for G_un in glist:
+                if (G == G_un).all():
+                    # Its already present
+                    return glist
+        else:
+            if G in glist:
+                return glist
+        glist.append(G)
     return glist
 
 
