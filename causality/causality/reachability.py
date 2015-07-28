@@ -5,7 +5,9 @@ import gzip
 from itertools import permutations, product, combinations, chain, izip, repeat, islice
 import json
 from multiprocessing import Pool, cpu_count
+import numpy as np
 import os
+from scipy.sparse import csc_matrix
 import shutil
 import socket
 import subprocess
@@ -105,6 +107,52 @@ def create_codomain(n, nprocs, outdir):
     graph_count = len(alledges)
     allgraphs = chain.from_iterable(combinations(alledges, r) for r in xrange(graph_count + 1))
     generate_graphs(allgraphs, graph_count, n, nprocs, outdir)
+
+
+def directed_inc_matrix(G_1,G_u):
+    G_u_plus_1 = csc_matrix(G_u.shape,dtype=np.int8)
+    xs, ys = np.triu_indices(G_u.shape[0])
+    for a,b in izip(xs,ys):
+        if G_u[a][b] in (1,5):
+            for c in G_1[b].nonzero()[1]:
+                if G_1[b][c] == 1:
+                    #there exists a path of length u+1 from a to c in G_1
+                    if G_u_plus_1[c][a] == 1:
+                        G_u_plus_1[a][c] = 3
+                        G_u_plus_1[c][a] = 3
+                    else:
+                        G_u_plus_1[a][c] = 1
+                        G_u_plus_1[c][a] = 2
+        if G_u[a][b] in (2,6):
+            for c in G_1[a].nonzero()[1]:
+                if G_1[a][c] == 1:
+                    #there exists a path of length u+1 from b to c in G_1
+                    if G_u_plus_1[c][b] == 1:
+                        G_u_plus_1[b][c] = 3
+                        G_u_plus_1[c][b] = 3
+                    else:
+                        G_u_plus_1[b][c] = 1
+                        G_u_plus_1[c][b] = 2
+        if G_u[a][b] in (3,7):
+            for c in G_1[b].nonzero()[1]:
+                if G_1[b][c] == 1:
+                    #there exists a path of length u+1 from a to c in G_1
+                    if G_u_plus_1[c][a] == 1:
+                        G_u_plus_1[a][c] = 3
+                        G_u_plus_1[c][a] = 3
+                    else:
+                        G_u_plus_1[a][c] = 1
+                        G_u_plus_1[c][a] = 2
+            for c in G_1[a].nonzero()[1]:
+                if G_1[a][c] == 1:
+                    #there exists a path of length u+1 from b to c in G_1
+                    if G_u_plus_1[c][b] == 1:
+                        G_u_plus_1[b][c] = 3
+                        G_u_plus_1[c][b] = 3
+                    else:
+                        G_u_plus_1[b][c] = 1
+                        G_u_plus_1[c][b] = 2
+    return G_u_plus_1
 
 
 def directed_inc(G, D):
