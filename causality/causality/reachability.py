@@ -237,6 +237,55 @@ def call_undersamples(G_1):
     return glist
 
 
+def matrix_to_dict(H):
+    """ Convert a graph from matrix format to dictionary format """
+    H_dict = {}
+    for i in xrange(H.shape[0]):
+        H_dict[str(i + 1)] = {}
+
+    def add_directed(a, b):
+        """ Add a directed edge """
+        H_dict[a].setdefault(b, set()).add((0, 1))
+
+    def add_bidirected(a, b):
+        """ Add a bidirected edge """
+        H_dict[a].setdefault(b, set()).add((2, 0))
+        H_dict[b].setdefault(a, set()).add((2, 0))
+
+    xs, ys = np.triu_indices(H.shape[0])
+    for x, y in izip(xs, ys):
+        a = str(x + 1)
+        b = str(y + 1)
+        if H[x, y] == 1:
+            # Directed edge from a to b
+            add_directed(a, b)
+        elif H[x, y] == 2:
+            # Directed edge from b to a
+            add_directed(b, a)
+        elif H[x, y] == 3:
+            # Directed edge from a to b and b to a
+            add_directed(a, b)
+            add_directed(b, a)
+        elif H[x, y] == 4:
+            # Bidirected edge between a and b
+            add_bidirected(a, b)
+        elif H[x, y] == 5:
+            # Bidirected edge between a and b and directed from a to b
+            add_bidirected(a, b)
+            add_directed(a, b)
+        elif H[x, y] == 6:
+            # Bidirected edge between a and b and directed from b to a
+            add_bidirected(a, b)
+            add_directed(b, a)
+        elif H[x, y] == 7:
+            # All edges
+            add_bidirected(a, b)
+            add_directed(a, b)
+            add_directed(b, a)
+
+    return H_dict
+
+
 def tup_to_dict(H, n):
     """ Convert a graph from tuple format to dictionary format
 
@@ -250,18 +299,11 @@ def tup_to_dict(H, n):
         edge = map(str, edge)
         if len(edge) == 2:
             # Directed edge
-            try:
-                # Might already have a bidirected edge
-                H_dict[edge[0]][edge[1]].add((0, 1))
-            except:
-                H_dict[edge[0]][edge[1]] = set([(0, 1)])
+            H_dict[edge[0]].setdefault(edge[1], set()).add((0, 1))
         else:
-            # Bidirected edge
-            try:
-                # Might already have a directed edge
-                H_dict[edge[0]][edge[1]].add((2, 0))
-            except:
-                H_dict[edge[0]][edge[1]] = set([(2, 0)])
+            # Bidirected edge, add to both nodes
+            H_dict[edge[0]].setdefault(edge[1], set()).add((2, 0))
+            H_dict[edge[1]].setdefault(edge[0], set()).add((2, 0))
     return H_dict
 
 
@@ -279,57 +321,55 @@ def dict_to_matrix(H):
             7 = ALL
     """
     H_matrix = np.zeros([len(H), len(H)], dtype=np.int8)
-    for a in H:
-        x = int(a) - 1
-        for b in H[a]:
-            y = int(b) - 1
-            val = 0
-            if (0, 1) in H[a][b]:
-                val = 1
-            if (0, 2) in H[a][b]:
-                val += 4
-            # val can only ever be 1,4 or 5
-            # H_matrix[y,x] == 0 means y,x has not been tested yet or there is no path
-            if H_matrix[y, x] == 0 and val == 1:
-                if x == y:
-                    # Self loops are defined as 3
-                    H_matrix[x, y] = 3
-                    H_matrix[y, x] = 3
-                else:
-                    H_matrix[x, y] = 1
-                    H_matrix[y, x] = 2
-            # H_matrix[y,x] == 1 means there is a path from y,x to x,y
-            elif H_matrix[y, x] == 1 and val == 1:
+    for b in H[a]:
+        y = int(b) - 1
+        val = 0
+        if (0, 1) in H[a][b]:
+            val = 1
+        if (2, 0) in H[a][b]:
+            val += 4
+        # val can only ever be 1,4 or 5
+        # H_matrix[y,x] == 0 means y,x has not been tested yet or there is no path
+        if H_matrix[y, x] == 0 and val == 1:
+            if x == y:
+                # Self loops are defined as 3
                 H_matrix[x, y] = 3
                 H_matrix[y, x] = 3
-            # H_matrix[y,x] == 0 means y,x has not been tested yet since
-            # bidirectionals are marked in both nodes
-            elif H_matrix[y, x] == 0 and val == 4:
-                H_matrix[x, y] = 4
-                H_matrix[y, x] = 4
-            # H_matrix[y,x] == 1 means there is a path from y,x to x,y
-            elif H_matrix[y, x] == 1 and val == 4:
-                H_matrix[x, y] = 6
-                H_matrix[y, x] = 5
-            # H_matrix[y,x] == 0 means y,x has not been tested yet since
-            # bidirectionals are marked in both nodes
-            elif H_matrix[y, x] == 0 and val == 5:
-                H_matrix[x, y] = 5
-                H_matrix[y, x] = 6
-            # H_matrix[y,x] == 1 means there is a path from y,x to x,y
-            elif H_matrix[y, x] == 1 and val == 5:
-                H_matrix[x, y] = 7
-                H_matrix[y, x] = 7
-            # H_matrix[y,x] == 4 means there is a bidirectional since
-            # bidirectionals are marked in both nodes
-            elif H_matrix[y, x] == 4 and val == 5:
-                H_matrix[x, y] = 5
-                H_matrix[y, x] = 6
-            # H_matrix[y,x] == 5 means there is a path and bidirectional
-            # from y,x to x,y
-            elif H_matrix[y, x] == 5 and val == 5:
-                H_matrix[x, y] = 7
-                H_matrix[y, x] = 7
+            else:
+                H_matrix[x, y] = 1
+                H_matrix[y, x] = 2
+        # H_matrix[y,x] == 1 means there is a path from y,x to x,y
+        elif H_matrix[y, x] == 1 and val == 1:
+            H_matrix[x, y] = 3
+            H_matrix[y, x] = 3
+        # H_matrix[y,x] == 0 means y,x has not been tested yet since
+        # bidirectionals are marked in both nodes
+        elif H_matrix[y, x] == 0 and val == 4:
+            H_matrix[x, y] = 4
+            H_matrix[y, x] = 4
+        # H_matrix[y,x] == 1 means there is a path from y,x to x,y
+        elif H_matrix[y, x] == 1 and val == 4:
+            H_matrix[x, y] = 6
+            H_matrix[y, x] = 5
+        # H_matrix[y,x] == 0 means y,x has not been tested yet since
+        # bidirectionals are marked in both nodes
+        elif H_matrix[y, x] == 0 and val == 5:
+            H_matrix[x, y] = 5
+            H_matrix[y, x] = 6
+        # H_matrix[y,x] == 1 means there is a path from y,x to x,y
+        elif H_matrix[y, x] == 1 and val == 5:
+            H_matrix[x, y] = 7
+            H_matrix[y, x] = 7
+        # H_matrix[y,x] == 4 means there is a bidirectional since
+        # bidirectionals are marked in both nodes
+        elif H_matrix[y, x] == 4 and val == 5:
+            H_matrix[x, y] = 5
+            H_matrix[y, x] = 6
+        # H_matrix[y,x] == 5 means there is a path and bidirectional
+        # from y,x to x,y
+        elif H_matrix[y, x] == 5 and val == 5:
+            H_matrix[x, y] = 7
+            H_matrix[y, x] = 7
     return H_matrix
 
 
