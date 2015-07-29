@@ -168,7 +168,8 @@ def bidirected_inc_matrix(G_u_plus_1, G_u):
             # get the current directed value and add the bidirected part, unless it was
             # already a bidirected then do nothing
             G_u_plus_1[a, b] = add_bi_edge.get(G_u_plus_1[a, b], G_u_plus_1[a, b])
-            G_u_plus_1[b, a] = add_bi_edge.get(G_u_plus_1[b, a], G_u_plus_1[b, a])  # a may = b
+            if a != b:
+                G_u_plus_1[b, a] = add_bi_edge.get(G_u_plus_1[b, a], G_u_plus_1[b, a])
 
         # new bidirected edges
         # Collect all indicies
@@ -236,7 +237,35 @@ def call_undersamples(G_1):
     return glist
 
 
-def to_matrix(H):
+def tup_to_dict(H, n):
+    """ Convert a graph from tuple format to dictionary format
+
+        n is required since the graph may have unreachable nodes that
+        are not present in the tuple format.
+    """
+    H_dict = {}
+    for i in xrange(n):
+        H_dict[str(i + 1)] = {}
+    for edge in H:
+        edge = map(str, edge)
+        if len(edge) == 2:
+            # Directed edge
+            try:
+                # Might already have a bidirected edge
+                H_dict[edge[0]][edge[1]].add((0, 1))
+            except:
+                H_dict[edge[0]][edge[1]] = set([(0, 1)])
+        else:
+            # Bidirected edge
+            try:
+                # Might already have a directed edge
+                H_dict[edge[0]][edge[1]].add((2, 0))
+            except:
+                H_dict[edge[0]][edge[1]] = set([(2, 0)])
+    return H_dict
+
+
+def dict_to_matrix(H):
     """ Convert a graph from dictionary format to matrix format
 
         Cell values to relationship map:
