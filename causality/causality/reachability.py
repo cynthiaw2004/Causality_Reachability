@@ -109,66 +109,74 @@ def create_codomain(n, nprocs, outdir):
 
 
 def directed_inc_matrix(G_1, G_u):
+    """ Add all directed edges """
     G_u_plus_1 = np.zeros(G_u.shape, dtype=np.int8)
+    # get the indicies of the upper triangle
     xs, ys = np.triu_indices(G_u.shape[0])
     for a, b in izip(xs, ys):
-        if G_u[a,b] in (1, 5):
+        if G_u[a, b] in (1, 5):
             for c in G_1[b].nonzero()[0]:
-                if G_1[b,c] == 1:
+                if G_1[b, c] in (1, 3):
                     # there exists a path of length u+1 from a to c in G_1
-                    if G_u_plus_1[c,a] == 1:
-                        G_u_plus_1[a,c] = 3
-                        G_u_plus_1[c,a] = 3
+                    if G_u_plus_1[c, a] == 1 or a == c:
+                        G_u_plus_1[a, c] = 3
+                        G_u_plus_1[c, a] = 3
                     else:
-                        G_u_plus_1[a,c] = 1
-                        G_u_plus_1[c,a] = 2
-        if G_u[a,b] in (2, 6):
+                        G_u_plus_1[a, c] = 1
+                        G_u_plus_1[c, a] = 2
+        if G_u[a, b] in (2, 6):
             for c in G_1[a].nonzero()[0]:
-                if G_1[a,c] == 1:
+                if G_1[a, c] in (1, 3):
                     # there exists a path of length u+1 from b to c in G_1
-                    if G_u_plus_1[c,b] == 1:
-                        G_u_plus_1[b,c] = 3
-                        G_u_plus_1[c,b] = 3
+                    if G_u_plus_1[c, b] == 1 or b == c:
+                        G_u_plus_1[b, c] = 3
+                        G_u_plus_1[c, b] = 3
                     else:
-                        G_u_plus_1[b,c] = 1
-                        G_u_plus_1[c,b] = 2
-        if G_u[a,b] in (3, 7):
+                        G_u_plus_1[b, c] = 1
+                        G_u_plus_1[c, b] = 2
+        if G_u[a, b] in (3, 7):
             for c in G_1[b].nonzero()[0]:
-                if G_1[b,c] == 1:
+                if G_1[b, c] in (1, 3):
                     # there exists a path of length u+1 from a to c in G_1
-                    if G_u_plus_1[c,a] == 1:
-                        G_u_plus_1[a,c] = 3
-                        G_u_plus_1[c,a] = 3
+                    if G_u_plus_1[c, a] == 1 or a == c:
+                        G_u_plus_1[a, c] = 3
+                        G_u_plus_1[c, a] = 3
                     else:
-                        G_u_plus_1[a,c] = 1
-                        G_u_plus_1[c,a] = 2
+                        G_u_plus_1[a, c] = 1
+                        G_u_plus_1[c, a] = 2
             for c in G_1[a].nonzero()[0]:
-                if G_1[a,c] == 1:
+                if G_1[a, c] in (1, 3):
                     # there exists a path of length u+1 from b to c in G_1
-                    if G_u_plus_1[c,b] == 1:
-                        G_u_plus_1[b,c] = 3
-                        G_u_plus_1[c,b] = 3
+                    if G_u_plus_1[c, b] == 1 or b == c:
+                        G_u_plus_1[b, c] = 3
+                        G_u_plus_1[c, b] = 3
                     else:
-                        G_u_plus_1[b,c] = 1
-                        G_u_plus_1[c,b] = 2
+                        G_u_plus_1[b, c] = 1
+                        G_u_plus_1[c, b] = 2
     return G_u_plus_1
 
 
 def bidirected_inc_matrix(G_u_plus_1, G_u):
-    # bidirected edges
+    """ Add any bidirected edges """
+    # get the indicies of the upper triangle
     xs, ys = np.triu_indices(G_u.shape[0])
-    add_bi_edge = {0:4, 1:5, 2:6, 3:7}
-    for a, b in izip(xs,ys):
+    # used to flip directed edges to directed edges + a bidirected edge
+    add_bi_edge = {0: 4, 1: 5, 2: 6, 3: 7}
+    for a, b in izip(xs, ys):
         # transfer old bidirected edges
-        if G_u[a,b] in (4, 5, 6):
-            G_u_plus_1[a,b] = add_bi_edge.get(G_u_plus_1[a,b], G_u_plus_1[a,b])
-            G_u_plus_1[b,a] = add_bi_edge.get(G_u_plus_1[b,a], G_u_plus_1[b,a])  # a may = b
+        if G_u[a, b] in (4, 5, 6, 7):
+            # get the current directed value and add the bidirected part, unless it was
+            # already a bidirected then do nothing
+            G_u_plus_1[a, b] = add_bi_edge.get(G_u_plus_1[a, b], G_u_plus_1[a, b])
+            G_u_plus_1[b, a] = add_bi_edge.get(G_u_plus_1[b, a], G_u_plus_1[b, a])  # a may = b
 
         # new bidirected edges
-        l = (c for c in G_u[a].nonzero()[0] if G_u[a,c] == 1)
+        # Collect all indicies
+        l = (c for c in G_u[a].nonzero()[0] if G_u[a, c] in (1, 3))
+        # Get all permutations of nodes with bidirected edges between them
         for x, y in permutations(l, 2):
-            G_u_plus_1[x,y] = add_bi_edge.get(G_u_plus_1[x,y], G_u_plus_1[x,y])
-            G_u_plus_1[y,x] = add_bi_edge.get(G_u_plus_1[y,x], G_u_plus_1[y,x])
+            # Add the edge
+            G_u_plus_1[x, y] = add_bi_edge.get(G_u_plus_1[x, y], G_u_plus_1[x, y])
 
     return G_u_plus_1
 
@@ -226,6 +234,74 @@ def call_undersamples(G_1):
                 return glist
         glist.append(G)
     return glist
+
+
+def to_matrix(H):
+    """ Convert a graph from dictionary format to matrix format
+
+        Cell values to relationship map:
+            0 = none
+            1 = row -> col
+            2 = col -> row
+            3 = row -> col AND col -> row
+            4 = bi
+            5 = row -> col AND bi
+            6 = col -> row AND bi
+            7 = ALL
+    """
+    H_matrix = np.zeros([len(H), len(H)], dtype=np.int8)
+    for a in H:
+        x = int(a) - 1
+        for b in H[a]:
+            y = int(b) - 1
+            val = 0
+            if (0, 1) in H[a][b]:
+                val = 1
+            if (0, 2) in H[a][b]:
+                val += 4
+            # val can only ever be 1,4 or 5
+            # H_matrix[y,x] == 0 means y,x has not been tested yet or there is no path
+            if H_matrix[y, x] == 0 and val == 1:
+                if x == y:
+                    # Self loops are defined as 3
+                    H_matrix[x, y] = 3
+                    H_matrix[y, x] = 3
+                else:
+                    H_matrix[x, y] = 1
+                    H_matrix[y, x] = 2
+            # H_matrix[y,x] == 1 means there is a path from y,x to x,y
+            elif H_matrix[y, x] == 1 and val == 1:
+                H_matrix[x, y] = 3
+                H_matrix[y, x] = 3
+            # H_matrix[y,x] == 0 means y,x has not been tested yet since
+            # bidirectionals are marked in both nodes
+            elif H_matrix[y, x] == 0 and val == 4:
+                H_matrix[x, y] = 4
+                H_matrix[y, x] = 4
+            # H_matrix[y,x] == 1 means there is a path from y,x to x,y
+            elif H_matrix[y, x] == 1 and val == 4:
+                H_matrix[x, y] = 6
+                H_matrix[y, x] = 5
+            # H_matrix[y,x] == 0 means y,x has not been tested yet since
+            # bidirectionals are marked in both nodes
+            elif H_matrix[y, x] == 0 and val == 5:
+                H_matrix[x, y] = 5
+                H_matrix[y, x] = 6
+            # H_matrix[y,x] == 1 means there is a path from y,x to x,y
+            elif H_matrix[y, x] == 1 and val == 5:
+                H_matrix[x, y] = 7
+                H_matrix[y, x] = 7
+            # H_matrix[y,x] == 4 means there is a bidirectional since
+            # bidirectionals are marked in both nodes
+            elif H_matrix[y, x] == 4 and val == 5:
+                H_matrix[x, y] = 5
+                H_matrix[y, x] = 6
+            # H_matrix[y,x] == 5 means there is a path and bidirectional
+            # from y,x to x,y
+            elif H_matrix[y, x] == 5 and val == 5:
+                H_matrix[x, y] = 7
+                H_matrix[y, x] = 7
+    return H_matrix
 
 
 if __name__ == "__main__":
