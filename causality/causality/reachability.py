@@ -114,40 +114,21 @@ def directed_inc_matrix(G_1, G_u):
     # get the indicies of the upper triangle
     xs, ys = np.triu_indices(G_u.shape[0])
     for a, b in izip(xs, ys):
-        if G_u[a, b] in (1, 5):
+        if G_u[a, b] in (1, 5, 3, 7):
             for c in G_1[b].nonzero()[0]:
                 if G_1[b, c] in (1, 3):
                     # there exists a path of length u+1 from a to c in G_1
-                    if G_u_plus_1[c, a] == 1 or a == c:
+                    if G_u_plus_1[c, a] == 1 or 3 or a == c:
                         G_u_plus_1[a, c] = 3
                         G_u_plus_1[c, a] = 3
                     else:
                         G_u_plus_1[a, c] = 1
                         G_u_plus_1[c, a] = 2
-        if G_u[a, b] in (2, 6):
+        if G_u[a, b] in (2, 6, 3, 7):
             for c in G_1[a].nonzero()[0]:
                 if G_1[a, c] in (1, 3):
                     # there exists a path of length u+1 from b to c in G_1
-                    if G_u_plus_1[c, b] == 1 or b == c:
-                        G_u_plus_1[b, c] = 3
-                        G_u_plus_1[c, b] = 3
-                    else:
-                        G_u_plus_1[b, c] = 1
-                        G_u_plus_1[c, b] = 2
-        if G_u[a, b] in (3, 7):
-            for c in G_1[b].nonzero()[0]:
-                if G_1[b, c] in (1, 3):
-                    # there exists a path of length u+1 from a to c in G_1
-                    if G_u_plus_1[c, a] == 1 or a == c:
-                        G_u_plus_1[a, c] = 3
-                        G_u_plus_1[c, a] = 3
-                    else:
-                        G_u_plus_1[a, c] = 1
-                        G_u_plus_1[c, a] = 2
-            for c in G_1[a].nonzero()[0]:
-                if G_1[a, c] in (1, 3):
-                    # there exists a path of length u+1 from b to c in G_1
-                    if G_u_plus_1[c, b] == 1 or b == c:
+                    if G_u_plus_1[c, b] == 1 or 3 or b == c:
                         G_u_plus_1[b, c] = 3
                         G_u_plus_1[c, b] = 3
                     else:
